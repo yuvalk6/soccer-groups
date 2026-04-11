@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚽ חלוקת קבוצות</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;800;900&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --bg:#0f0f13; --surface:#1a1a24; --surface2:#22222f;
+    --accent:#f0c040; --accent2:#e05a30; --text:#f0ede8;
+    --muted:#888; --green:#4caf7d; --red:#e05a30;
+    --border:rgba(240,192,64,0.15);
+  }
+  body { font-family:'Heebo',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px 16px; max-width:600px; margin:0 auto; }
+  .screen { display:none; } .screen.active { display:block; }
+  h1 { font-size:2rem; font-weight:900; letter-spacing:-1px; color:var(--accent); margin-bottom:4px; }
+  .subtitle { color:var(--muted); font-size:0.85rem; margin-bottom:20px; }
+  .top-bar { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+  .top-bar-left { flex:1; }
+  .btn-manage {
+    display:flex; align-items:center; gap:6px; background:var(--surface); border:1px solid var(--border);
+    color:var(--accent); font-family:'Heebo',sans-serif; font-weight:700; font-size:0.82rem;
+    padding:8px 14px; border-radius:10px; cursor:pointer; transition:all 0.15s; white-space:nowrap; margin-top:6px;
+  }
+  .btn-manage:hover { background:var(--accent); color:#000; }
+  .add-section { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:20px; }
+  .add-section > h2 { font-size:0.82rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:1px; margin-bottom:16px; }
+  .field-label { font-size:0.7rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.9px; margin-bottom:7px; display:block; }
+  .add-name-row { margin-bottom:14px; }
+  input[type="text"] { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:11px 14px; color:var(--text); font-family:'Heebo',sans-serif; font-size:0.95rem; outline:none; transition:border-color 0.2s; }
+  input[type="text"]:focus { border-color:var(--accent); }
+  .add-bottom-row { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; }
+  .field-block { display:flex; flex-direction:column; }
+  .level-select { display:flex; gap:5px; }
+  .lvl-btn { width:42px; height:42px; border-radius:9px; border:2px solid var(--border); background:var(--surface2); color:var(--muted); font-family:'Heebo',sans-serif; font-size:1rem; font-weight:800; cursor:pointer; transition:all 0.15s; }
+  .lvl-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .lvl-btn.active { background:var(--accent); color:#000; border-color:var(--accent); box-shadow:0 0 12px rgba(240,192,64,0.3); }
+  .lvl-hint { display:flex; justify-content:space-between; padding:0 2px; margin-top:5px; font-size:0.62rem; color:var(--muted); }
+  .toggle-wrap { display:flex; flex-direction:column; }
+  .toggle-pill { display:flex; align-items:center; gap:10px; background:var(--surface2); border:2px solid var(--border); border-radius:9px; padding:0 16px; height:42px; cursor:pointer; user-select:none; transition:border-color 0.2s,background 0.2s; white-space:nowrap; }
+  .toggle-pill:hover { border-color:rgba(240,192,64,0.4); }
+  .toggle-pill.on { border-color:var(--green); background:rgba(76,175,125,0.08); }
+  .toggle-track { width:38px; height:22px; background:#333; border-radius:11px; position:relative; flex-shrink:0; transition:background 0.2s; border:1px solid rgba(255,255,255,0.08); }
+  .toggle-track::after { content:''; position:absolute; width:16px; height:16px; background:#666; border-radius:50%; top:2px; right:2px; transition:all 0.22s cubic-bezier(.4,0,.2,1); }
+  .toggle-pill.on .toggle-track { background:var(--green); }
+  .toggle-pill.on .toggle-track::after { background:#fff; right:18px; }
+  .toggle-text { font-size:0.88rem; font-weight:700; color:var(--muted); min-width:55px; transition:color 0.2s; }
+  .toggle-pill.on .toggle-text { color:var(--green); }
+  .btn-add { height:42px; padding:0 20px; background:var(--accent); color:#000; font-family:'Heebo',sans-serif; font-weight:800; font-size:0.95rem; border:none; border-radius:9px; cursor:pointer; transition:background 0.15s; white-space:nowrap; align-self:flex-end; }
+  .btn-add:hover { background:#ffd060; }
+  .players-section { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:20px; }
+  .players-section > h2 { font-size:0.82rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; }
+  .count-badge { background:var(--accent); color:#000; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700; }
+  .player-grid { display:flex; flex-wrap:wrap; gap:8px; }
+  .player-chip { display:flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--border); border-radius:30px; padding:6px 12px; font-size:0.88rem; transition:all 0.2s; }
+  .player-chip.inactive .chip-name { color:var(--muted); }
+  .chip-level { border-radius:50%; width:20px; height:20px; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:900; }
+  .chip-name { font-weight:600; }
+  .chip-toggle { background:none; border:none; cursor:pointer; font-size:0.78rem; font-weight:700; line-height:1; padding:3px 8px; border-radius:20px; transition:all 0.15s; font-family:'Heebo',sans-serif; }
+  .player-chip:not(.inactive) .chip-toggle { background:rgba(76,175,125,0.15); color:var(--green); border:1px solid rgba(76,175,125,0.3); }
+  .player-chip:not(.inactive) .chip-toggle:hover { background:var(--green); color:#fff; }
+  .player-chip.inactive .chip-toggle { background:rgba(240,192,64,0.12); color:var(--accent); border:1px solid rgba(240,192,64,0.3); }
+  .player-chip.inactive .chip-toggle:hover { background:var(--accent); color:#000; }
+  .chip-edit { background:none; border:none; cursor:pointer; color:var(--muted); font-size:0.78rem; line-height:1; transition:color 0.15s; }
+  .chip-edit:hover { color:var(--accent); }
+  .chip-delete { background:none; border:none; cursor:pointer; color:var(--muted); font-size:0.72rem; line-height:1; transition:color 0.15s; }
+  .chip-delete:hover { color:var(--red); }
+  .btn-go { background:var(--accent2); color:#fff; font-family:'Heebo',sans-serif; font-weight:800; font-size:1rem; padding:13px 24px; border-radius:10px; width:100%; margin-top:16px; border:none; cursor:pointer; transition:background 0.15s; }
+  .btn-go:hover { background:#f07050; }
+  .teams-section { margin-top:8px; }
+  .section-title { font-size:0.82rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:1px; margin-bottom:12px; }
+  .teams-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+  .team-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; animation:fadeIn 0.4s ease both; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+  .team-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .team-name { font-size:1rem; font-weight:900; letter-spacing:-0.5px; }
+  .team-score { font-size:0.78rem; color:var(--muted); background:var(--surface2); padding:3px 10px; border-radius:20px; }
+  .team-player { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .team-player:last-child { border-bottom:none; }
+  .tp-name { font-weight:600; font-size:0.92rem; }
+  .tp-level { font-size:0.78rem; color:var(--muted); display:flex; align-items:center; gap:4px; }
+  .stars { color:var(--accent); letter-spacing:-2px; }
+  .team-a { border-top:3px solid #f0c040; } .team-a .team-name { color:#f0c040; }
+  .team-b { border-top:3px solid #e05a30; } .team-b .team-name { color:#e05a30; }
+  .team-c { border-top:3px solid #4caf7d; } .team-c .team-name { color:#4caf7d; }
+  .error-msg { background:rgba(224,90,48,0.15); border:1px solid var(--red); border-radius:10px; padding:12px 16px; color:var(--red); font-size:0.88rem; margin-top:12px; }
+  .shuffle-btn { background:var(--surface2); border:1px solid var(--border); color:var(--accent); font-family:'Heebo',sans-serif; font-weight:700; font-size:0.85rem; padding:9px 18px; border-radius:8px; cursor:pointer; display:block; margin:12px auto 0; transition:all 0.15s; }
+  .shuffle-btn:hover { background:var(--accent); color:#000; }
+  .share-bar { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+  .share-btn { flex:1; min-width:120px; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-family:'Heebo',sans-serif; font-weight:700; font-size:0.85rem; padding:10px 14px; border-radius:9px; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; justify-content:center; gap:6px; }
+  .share-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+  /* ── MANAGE SCREEN ── */
+  .manage-header { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .btn-back { background:var(--surface); border:1px solid var(--border); color:var(--muted); font-family:'Heebo',sans-serif; font-weight:700; font-size:0.88rem; padding:8px 14px; border-radius:10px; cursor:pointer; transition:all 0.15s; flex-shrink:0; }
+  .btn-back:hover { border-color:var(--accent); color:var(--accent); }
+  .manage-title { font-size:1.4rem; font-weight:900; color:var(--accent); }
+  .manage-subtitle { color:var(--muted); font-size:0.8rem; margin-bottom:22px; margin-top:2px; }
+  .manage-add-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px; }
+  .manage-add-box h2 { font-size:0.82rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; }
+  .manage-add-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px; }
+  .manage-add-row input { flex:1; min-width:140px; }
+  .manage-list-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .manage-list-box h2 { font-size:0.82rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+  .manage-player-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .manage-player-row:last-child { border-bottom:none; }
+  .mpr-badge { width:24px; height:24px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:900; }
+  .mpr-l1 { background:#4caf7d; color:#fff; } .mpr-l2 { background:#5ba4e8; color:#fff; }
+  .mpr-l3 { background:#f0c040; color:#000; } .mpr-l4 { background:#e08030; color:#fff; }
+  .mpr-l5 { background:#e05060; color:#fff; }
+  .mpr-name { font-weight:600; font-size:0.92rem; flex:1; }
+  .mpr-edit-btns { display:flex; gap:4px; }
+  .mpr-lvl-btn { width:28px; height:28px; border-radius:7px; border:1px solid var(--border); background:var(--surface2); color:var(--muted); font-family:'Heebo',sans-serif; font-size:0.75rem; font-weight:800; cursor:pointer; transition:all 0.12s; }
+  .mpr-lvl-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .mpr-lvl-btn.sel { background:var(--accent); color:#000; border-color:var(--accent); }
+  .mpr-del { background:none; border:none; cursor:pointer; color:var(--muted); font-size:1rem; line-height:1; transition:color 0.15s; padding:0 4px; }
+  .mpr-del:hover { color:var(--red); }
+
+  /* loading / status */
+  .db-status { display:flex; align-items:center; gap:8px; font-size:0.78rem; color:var(--muted); margin-bottom:14px; }
+  .db-dot { width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+  .db-dot.ok { background:var(--green); box-shadow:0 0 6px rgba(76,175,125,0.5); }
+  .db-dot.err { background:var(--red); }
+  .db-dot.loading { background:var(--accent); animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .loading-row { display:flex; align-items:center; gap:10px; padding:16px 0; color:var(--muted); font-size:0.88rem; }
+  .spinner { width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; flex-shrink:0; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 20px; font-size:0.88rem; font-weight:700; z-index:999; opacity:0; transition:opacity 0.2s; pointer-events:none; }
+  .toast.show { opacity:1; }
+  .toast.ok { border-color:var(--green); color:var(--green); }
+  .toast.err { border-color:var(--red); color:var(--red); }
+
+  /* popups */
+  .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:100; align-items:center; justify-content:center; }
+  .overlay.open { display:flex; }
+  .popup { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; min-width:260px; text-align:center; animation:fadeIn 0.2s ease; }
+  .popup h3 { font-size:1rem; font-weight:800; color:var(--accent); margin-bottom:4px; }
+  .popup p { font-size:0.8rem; color:var(--muted); margin-bottom:18px; }
+  .edit-level-row { display:flex; gap:8px; justify-content:center; margin-bottom:18px; }
+  .edit-lvl-btn { width:46px; height:46px; border-radius:10px; border:2px solid var(--border); background:var(--surface2); color:var(--muted); font-family:'Heebo',sans-serif; font-size:1.05rem; font-weight:800; cursor:pointer; transition:all 0.15s; }
+  .edit-lvl-btn:hover { border-color:var(--accent); color:var(--accent); }
+  .edit-lvl-btn.sel { background:var(--accent); color:#000; border-color:var(--accent); }
+  .popup-close { background:var(--surface2); border:1px solid var(--border); color:var(--muted); font-family:'Heebo',sans-serif; font-weight:700; font-size:0.85rem; padding:8px 20px; border-radius:8px; cursor:pointer; transition:all 0.15s; }
+  .popup-close:hover { border-color:var(--red); color:var(--red); }
+  .share-modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:200; align-items:center; justify-content:center; }
+  .share-modal-overlay.open { display:flex; }
+  .share-modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:24px; width:90%; max-width:400px; animation:fadeIn 0.2s ease; }
+  .share-modal h3 { font-size:1rem; font-weight:800; color:var(--accent); margin-bottom:16px; }
+  .share-text { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px; font-size:0.88rem; color:var(--text); line-height:1.7; white-space:pre-wrap; word-break:break-word; max-height:300px; overflow-y:auto; font-family:'Heebo',sans-serif; direction:rtl; text-align:right; margin-bottom:14px; }
+  .share-modal-btns { display:flex; gap:8px; }
+  .share-copy-btn { flex:1; background:var(--accent); color:#000; font-family:'Heebo',sans-serif; font-weight:800; font-size:0.9rem; padding:10px; border:none; border-radius:9px; cursor:pointer; transition:all 0.15s; }
+  .share-copy-btn:hover { background:#ffd060; }
+  .share-copy-btn.copied { background:var(--green); color:#fff; }
+  .share-modal-close { background:var(--surface2); border:1px solid var(--border); color:var(--muted); font-family:'Heebo',sans-serif; font-weight:700; font-size:0.85rem; padding:10px 18px; border-radius:9px; cursor:pointer; transition:all 0.15s; }
+  .share-modal-close:hover { border-color:var(--red); color:var(--red); }
+
+  /* ── STATS SCREEN ── */
+  .stats-header { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  .stats-title { font-size:1.4rem; font-weight:900; color:var(--accent); }
+  .stats-subtitle { color:var(--muted); font-size:0.8rem; margin-bottom:22px; margin-top:2px; }
+  .stats-list-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px; }
+  .stats-list-box h2 { font-size:0.82rem; font-weight:700; color:var(--accent); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+  .stats-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .stats-row:last-child { border-bottom:none; }
+  .stats-rank { width:24px; font-size:0.75rem; font-weight:900; color:var(--muted); text-align:center; flex-shrink:0; }
+  .stats-rank.top1 { color:#f0c040; font-size:0.9rem; }
+  .stats-rank.top2 { color:#aaa; font-size:0.9rem; }
+  .stats-rank.top3 { color:#cd7f32; font-size:0.9rem; }
+  .stats-name { font-weight:600; font-size:0.92rem; flex:1; }
+  .stats-bar-wrap { flex:2; background:var(--surface2); border-radius:20px; height:8px; overflow:hidden; }
+  .stats-bar { height:100%; background:var(--accent); border-radius:20px; transition:width 0.4s ease; }
+  .stats-count { font-size:0.88rem; font-weight:800; color:var(--accent); min-width:32px; text-align:left; }
+  .stats-games-label { font-size:0.7rem; color:var(--muted); }
+  .btn-reset-stats { background:var(--surface2); border:1px solid rgba(224,90,48,0.3); color:var(--red); font-family:'Heebo',sans-serif; font-weight:700; font-size:0.82rem; padding:8px 16px; border-radius:8px; cursor:pointer; transition:all 0.15s; }
+  .btn-reset-stats:hover { background:var(--red); color:#fff; }
+</style>
+</head>
+<body>
+
+<!-- ══ MAIN SCREEN ══ -->
+<div id="screenMain" class="screen active">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <h1>⚽ חלוקת קבוצות</h1>
+      <p class="subtitle">בחר שחקנים פעילים וחלק לקבוצות מאוזנות</p>
+    </div>
+    <div style="display:flex;flex-direction:row;gap:6px;margin-top:6px">
+      <button class="btn-manage" onclick="showManage()">👥 ניהול קבועים</button>
+      <button class="btn-manage" onclick="showStats()">📊 סטטיסטיקות</button>
+    </div>
+  </div>
+
+  <div class="players-section">
+    <h2>שחקנים <span class="count-badge" id="activeCount">0 פעילים</span></h2>
+    <div class="player-grid" id="playerGrid"></div>
+    <button class="btn-go" onclick="divideTeams()">⚡ חלק לקבוצות</button>
+  </div>
+
+  <div class="add-section">
+    <h2>➕ הוסף שחקן למשחק הנוכחי</h2>
+    <div class="add-name-row">
+      <label class="field-label" for="nameInput">שם השחקן</label>
+      <input type="text" id="nameInput" placeholder="הכנס שם..." />
+    </div>
+    <div class="add-bottom-row">
+      <div class="field-block">
+        <span class="field-label">רמה (1 = הכי חזק)</span>
+        <div class="level-select" id="levelSelect">
+          <button class="lvl-btn active" data-level="1">1</button>
+          <button class="lvl-btn" data-level="2">2</button>
+          <button class="lvl-btn" data-level="3">3</button>
+          <button class="lvl-btn" data-level="4">4</button>
+          <button class="lvl-btn" data-level="5">5</button>
+        </div>
+        <div class="lvl-hint"><span>💪 חזק</span><span>🐢 חלש</span></div>
+      </div>
+      <div class="toggle-wrap">
+        <span class="field-label">השתתפות</span>
+        <div class="toggle-pill on" id="activeToggle" onclick="toggleNewActive()">
+          <div class="toggle-track"></div>
+          <span class="toggle-text" id="toggleText">פעיל ✓</span>
+        </div>
+      </div>
+      <button class="btn-add" onclick="addSessionPlayer()">+ הוסף</button>
+    </div>
+  </div>
+
+  <div class="teams-section" id="teamsSection"></div>
+</div>
+
+<!-- ══ MANAGE SCREEN ══ -->
+<div id="screenManage" class="screen">
+  <div class="manage-header">
+    <button class="btn-back" onclick="showMain()">→ חזרה</button>
+    <div class="manage-title">👥 שחקנים קבועים</div>
+  </div>
+  <p class="manage-subtitle">הוסף, ערוך או מחק שחקנים קבועים</p>
+
+  <div class="db-status">
+    <div class="db-dot loading" id="dbDot"></div>
+    <span id="dbStatusText">מתחבר למסד הנתונים...</span>
+  </div>
+
+  <div class="manage-add-box">
+    <h2>➕ הוסף שחקן קבוע</h2>
+    <div class="manage-add-row">
+      <input type="text" id="mNameInput" placeholder="שם השחקן..." />
+      <div class="level-select" id="mLevelSelect">
+        <button class="lvl-btn active" data-level="1">1</button>
+        <button class="lvl-btn" data-level="2">2</button>
+        <button class="lvl-btn" data-level="3">3</button>
+        <button class="lvl-btn" data-level="4">4</button>
+        <button class="lvl-btn" data-level="5">5</button>
+      </div>
+      <button class="btn-add" onclick="addPermanentPlayer()">+ הוסף</button>
+    </div>
+    <div class="lvl-hint" style="padding:0 2px"><span>💪 1 = הכי חזק</span><span>🐢 5 = הכי חלש</span></div>
+  </div>
+
+  <div class="manage-list-box">
+    <h2>רשימה קבועה <span class="count-badge" id="permanentCount">0</span></h2>
+    <div id="permanentList"><div class="loading-row"><div class="spinner"></div>טוען שחקנים...</div></div>
+  </div>
+</div>
+
+<!-- ══ STATS SCREEN ══ -->
+<div id="screenStats" class="screen">
+  <div class="stats-header">
+    <button class="btn-back" onclick="showMain()">→ חזרה</button>
+    <div class="stats-title">📊 סטטיסטיקות</div>
+  </div>
+  <div class="stats-list-box">
+    <h2>כמות משחקים לפי שחקן <button class="btn-reset-stats" onclick="resetStats()">אפס הכל</button></h2>
+    <div id="statsList"></div>
+  </div>
+</div>
+
+<!-- edit popup -->
+<div class="overlay" id="editOverlay" onclick="if(event.target===this)closeEdit()">
+  <div class="popup">
+    <h3 id="editPopupName"></h3>
+    <p>בחר רמה חדשה (1 = הכי חזק)</p>
+    <div class="edit-level-row">
+      <button class="edit-lvl-btn" data-level="1">1</button>
+      <button class="edit-lvl-btn" data-level="2">2</button>
+      <button class="edit-lvl-btn" data-level="3">3</button>
+      <button class="edit-lvl-btn" data-level="4">4</button>
+      <button class="edit-lvl-btn" data-level="5">5</button>
+    </div>
+    <button class="popup-close" onclick="closeEdit()">סגור</button>
+  </div>
+</div>
+
+<!-- share modal -->
+<div class="share-modal-overlay" id="shareOverlay" onclick="if(event.target===this)closeShare()">
+  <div class="share-modal">
+    <h3>📤 שיתוף</h3>
+    <div class="share-text" id="shareText"></div>
+    <div class="share-modal-btns">
+      <button class="share-copy-btn" id="shareCopyBtn" onclick="copyShare()">📋 העתק</button>
+      <button class="share-modal-close" onclick="closeShare()">סגור</button>
+    </div>
+  </div>
+</div>
+
+<!-- toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ─── SUPABASE CONFIG ───
+  const SUPA_URL = 'https://bygrpoflnqroeibxxghv.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5Z3Jwb2ZsbnFyb2VpYnh4Z2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNDQwNzgsImV4cCI6MjA4OTkyMDA3OH0.Hjh3b4iSFWIRAoVBU7RJwLgZj0-qAXpZPITCt6LJRQA';
+  const TABLE   = 'players'; // שם הטבלה שיצרת
+
+  const supa = {
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+    async get()    { const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?select=*&order=level.asc,name.asc`, { headers: this.headers }); return r.ok ? r.json() : []; },
+    async insert(name, level) { const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}`, { method:'POST', headers: this.headers, body: JSON.stringify({ name, level }) }); return r.ok ? (await r.json())[0] : null; },
+    async update(id, level)   { const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?id=eq.${id}`, { method:'PATCH', headers: this.headers, body: JSON.stringify({ level }) }); return r.ok; },
+    async delete(id)          { const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?id=eq.${id}`, { method:'DELETE', headers: this.headers }); return r.ok; }
+  };
+
+  // ─── STATE ───
+  let permanent = [];   // [{ id, name, level }]
+  let players   = [];   // session: permanent + temp additions
+  let selectedLevel  = 1;
+  let mSelectedLevel = 1;
+  let newPlayerActive = true;
+  let editingIndex = -1;
+  let lastTeams = [];
+
+  // ─── TOAST ───
+  function toast(msg, type='ok') {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.className = 'toast show ' + type;
+    clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  // ─── DB STATUS ───
+  function setDbStatus(state, text) {
+    const dot = document.getElementById('dbDot');
+    dot.className = 'db-dot ' + state;
+    document.getElementById('dbStatusText').textContent = text;
+  }
+
+  // ─── LOAD FROM SUPABASE ───
+  async function loadPermanent() {
+    setDbStatus('loading', 'מתחבר למסד הנתונים...');
+    try {
+      const rows = await supa.get();
+      permanent = rows.map(r => ({ id: r.id, name: r.name, level: r.level }));
+      players = permanent.map(p => ({ ...p, active: false, perm: true }));
+      setDbStatus('ok', 'מחובר · ' + permanent.length + ' שחקנים');
+      render();
+      renderManage();
+    } catch(e) {
+      setDbStatus('err', 'שגיאת חיבור');
+      toast('לא הצלחנו להתחבר ל-Supabase', 'err');
+    }
+  }
+
+  // ─── LEVEL BUTTONS ───
+  document.querySelectorAll('#levelSelect .lvl-btn').forEach(btn =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#levelSelect .lvl-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); selectedLevel = +btn.dataset.level;
+    })
+  );
+  document.querySelectorAll('#mLevelSelect .lvl-btn').forEach(btn =>
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#mLevelSelect .lvl-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active'); mSelectedLevel = +btn.dataset.level;
+    })
+  );
+
+  document.getElementById('nameInput').addEventListener('keydown',  e => { if (e.key==='Enter') addSessionPlayer(); });
+  document.getElementById('mNameInput').addEventListener('keydown', e => { if (e.key==='Enter') addPermanentPlayer(); });
+
+  // ─── SCREENS ───
+  function showMain() {
+    document.getElementById('screenMain').classList.add('active');
+    document.getElementById('screenManage').classList.remove('active');
+    document.getElementById('screenStats').classList.remove('active');
+  }
+  function showManage() {
+    document.getElementById('screenManage').classList.add('active');
+    document.getElementById('screenMain').classList.remove('active');
+    document.getElementById('screenStats').classList.remove('active');
+    loadPermanent();
+  }
+  function showStats() {
+    document.getElementById('screenStats').classList.add('active');
+    document.getElementById('screenMain').classList.remove('active');
+    document.getElementById('screenManage').classList.remove('active');
+    renderStats();
+  }
+
+  function toggleNewActive() {
+    newPlayerActive = !newPlayerActive;
+    document.getElementById('activeToggle').classList.toggle('on', newPlayerActive);
+    document.getElementById('toggleText').textContent = newPlayerActive ? 'פעיל ✓' : 'לא פעיל';
+  }
+
+  // ─── SESSION PLAYER (temp, not saved to DB) ───
+  function addSessionPlayer() {
+    const name = document.getElementById('nameInput').value.trim();
+    if (!name) return;
+    players.push({ name, level: selectedLevel, active: newPlayerActive, perm: false });
+    document.getElementById('nameInput').value = '';
+    render();
+  }
+
+  function togglePlayer(i) { players[i].active = !players[i].active; render(); }
+  function deletePlayer(i)  { players.splice(i,1); render(); }
+
+  // ─── PERMANENT MANAGEMENT (Supabase) ───
+  async function addPermanentPlayer() {
+    const name = document.getElementById('mNameInput').value.trim();
+    if (!name) return;
+    const btn = document.querySelector('.manage-add-box .btn-add');
+    btn.disabled = true; btn.textContent = '...';
+    const row = await supa.insert(name, mSelectedLevel);
+    btn.disabled = false; btn.textContent = '+ הוסף';
+    if (!row) { toast('שגיאה בהוספה', 'err'); return; }
+    permanent.push({ id: row.id, name: row.name, level: row.level });
+    players.push({ id: row.id, name: row.name, level: row.level, active: false, perm: true });
+    document.getElementById('mNameInput').value = '';
+    setDbStatus('ok', 'מחובר · ' + permanent.length + ' שחקנים');
+    toast('✓ ' + row.name + ' נוסף');
+    renderManage(); render();
+  }
+
+  async function deletePermanent(id) {
+    const ok = await supa.delete(id);
+    if (!ok) { toast('שגיאה במחיקה', 'err'); return; }
+    permanent = permanent.filter(p => p.id !== id);
+    players   = players.filter(p => p.id !== id);
+    setDbStatus('ok', 'מחובר · ' + permanent.length + ' שחקנים');
+    toast('נמחק בהצלחה');
+    renderManage(); render();
+  }
+
+  async function setPermanentLevel(id, level) {
+    const ok = await supa.update(id, level);
+    if (!ok) { toast('שגיאה בעדכון', 'err'); return; }
+    const pi = permanent.findIndex(p => p.id === id);
+    if (pi !== -1) permanent[pi].level = level;
+    const qi = players.findIndex(p => p.id === id);
+    if (qi !== -1) players[qi].level = level;
+    toast('רמה עודכנה');
+    renderManage(); render();
+  }
+
+  // ─── RENDER MAIN ───
+  function render() {
+    const activeCount = players.filter(p => p.active).length;
+    document.getElementById('activeCount').textContent = activeCount + ' פעילים';
+
+    const sorted = players
+      .map((p,i) => ({...p,i}))
+      .sort((a,b) => a.level - b.level || a.name.localeCompare(b.name,'he'));
+
+    const lvlColors = {1:['#4caf7d','#fff'],2:['#5ba4e8','#fff'],3:['#f0c040','#000'],4:['#e08030','#fff'],5:['#e05060','#fff']};
+    document.getElementById('playerGrid').innerHTML = sorted.map(({i,...p}) => {
+      const [bg,fg] = p.active ? lvlColors[p.level] : ['#888','#fff'];
+      return `
+      <div class="player-chip lvl-${p.level} ${p.active?'':'inactive'}">
+        <div class="chip-level" style="background:${bg};color:${fg}">${p.level}</div>
+        <span class="chip-name">${p.name}</span>
+        <button class="chip-toggle" onclick="togglePlayer(${i})">${p.active?'✓ משחק':'+ הוסף'}</button>
+        <button class="chip-edit" onclick="openEdit(${i})" title="שנה רמה">✏️</button>
+        ${!p.perm ? `<button class="chip-delete" onclick="deletePlayer(${i})">✕</button>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // ─── RENDER MANAGE ───
+  function renderManage() {
+    document.getElementById('permanentCount').textContent = permanent.length;
+    const sorted = [...permanent].sort((a,b) => a.level - b.level || a.name.localeCompare(b.name,'he'));
+
+    document.getElementById('permanentList').innerHTML = sorted.length === 0
+      ? '<p style="color:var(--muted);font-size:0.85rem;padding:8px 0">אין שחקנים קבועים עדיין</p>'
+      : sorted.map(p => `
+          <div class="manage-player-row">
+            <div class="mpr-badge mpr-l${p.level}">${p.level}</div>
+            <span class="mpr-name">${p.name}</span>
+            <div class="mpr-edit-btns">
+              ${[1,2,3,4,5].map(l=>`<button class="mpr-lvl-btn ${p.level===l?'sel':''}" onclick="setPermanentLevel('${p.id}',${l})">${l}</button>`).join('')}
+            </div>
+            <button class="mpr-del" onclick="deletePermanent('${p.id}')" title="מחק">✕</button>
+          </div>
+        `).join('');
+  }
+
+  // ─── EDIT LEVEL POPUP (main screen) ───
+  function openEdit(i) {
+    editingIndex = i;
+    document.getElementById('editPopupName').textContent = players[i].name;
+    document.querySelectorAll('.edit-lvl-btn').forEach(btn => {
+      const l = +btn.dataset.level;
+      btn.classList.toggle('sel', l === players[i].level);
+      btn.onclick = async () => {
+        players[editingIndex].level = l;
+        if (players[editingIndex].perm && players[editingIndex].id) {
+          await supa.update(players[editingIndex].id, l);
+          const pi = permanent.findIndex(p => p.id === players[editingIndex].id);
+          if (pi !== -1) permanent[pi].level = l;
+        }
+        document.querySelectorAll('.edit-lvl-btn').forEach(b => b.classList.toggle('sel', +b.dataset.level === l));
+        render();
+        toast('רמה עודכנה');
+      };
+    });
+    document.getElementById('editOverlay').classList.add('open');
+  }
+  function closeEdit() { document.getElementById('editOverlay').classList.remove('open'); editingIndex = -1; }
+
+  // ─── TEAMS ───
+  function divideTeams() {
+    const active = players.filter(p => p.active);
+    const n = active.length;
+    const section = document.getElementById('teamsSection');
+    if (n < 10)  { section.innerHTML='<div class="error-msg">צריך לפחות 10 שחקנים פעילים</div>'; return; }
+    if (n > 15)  { section.innerHTML='<div class="error-msg">יותר מדי שחקנים! מקסימום 15 (3 קבוצות × 5)</div>'; return; }
+
+    let numTeams = n <= 10 ? 2 : 3;
+    if (Math.ceil(n/numTeams) > 5) numTeams = Math.ceil(n/5);
+    if (numTeams > 3) { section.innerHTML='<div class="error-msg">יותר מדי שחקנים לחלוקה</div>'; return; }
+
+    const byLevel = {};
+    active.forEach(p => { if (!byLevel[p.level]) byLevel[p.level]=[]; byLevel[p.level].push(p); });
+    Object.values(byLevel).forEach(g => { for (let i=g.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [g[i],g[j]]=[g[j],g[i]]; } });
+    const sorted = Object.keys(byLevel).sort((a,b)=>a-b).flatMap(k=>byLevel[k]);
+
+    const teams = Array.from({length:numTeams},()=>[]);
+    let dir=1, ti=0;
+    for (let i=0;i<sorted.length;i++) {
+      teams[ti].push(sorted[i]); ti+=dir;
+      if (ti>=numTeams){ti=numTeams-1;dir=-1;} else if (ti<0){ti=0;dir=1;}
+    }
+    for (let i=teams.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [teams[i],teams[j]]=[teams[j],teams[i]]; }
+
+    const teamNames=['קבוצה א׳','קבוצה ב׳','קבוצה ג׳'];
+    const teamClasses=['team-a','team-b','team-c'];
+    const teamStars=teams.map(t=>t.reduce((s,p)=>s+(6-p.level),0));
+    lastTeams=teams;
+
+    section.innerHTML = `
+      <div class="section-title">תוצאות החלוקה</div>
+      <div class="teams-grid">
+        ${teams.map((team,ti)=>`
+          <div class="team-card ${teamClasses[ti]}" style="animation-delay:${ti*0.1}s">
+            <div class="team-header">
+              <div class="team-name">${teamNames[ti]}</div>
+              <div class="team-score">${team.length} שחקנים · ★ ${teamStars[ti]}</div>
+            </div>
+            ${team.map(p=>`
+              <div class="team-player">
+                <span class="tp-name">${p.name}</span>
+                <span class="tp-level">רמה ${p.level} <span class="stars">${'★'.repeat(6-p.level)}${'☆'.repeat(p.level-1)}</span></span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:center">
+        <button class="shuffle-btn" style="margin:0" onclick="divideTeams()">🔀 ערבב שוב</button>
+        <button class="shuffle-btn" style="margin:0;border-color:rgba(76,175,125,0.3);color:var(--green)" onclick="saveToStats()">📊 הוסף לסטטיסטיקות</button>
+      </div>
+      <div class="share-bar">
+        <button class="share-btn" onclick="openShare('teams')">📤 שתף קבוצות</button>
+        <button class="share-btn" onclick="openShare('players')">👥 שתף רשימת שחקנים</button>
+      </div>
+    `;
+  }
+
+  // ─── SHARE ───
+  function openShare(mode) {
+    const teamNames=['קבוצה א׳','קבוצה ב׳','קבוצה ג׳'];
+    let text='';
+    if (mode==='teams' && lastTeams.length>0) {
+      lastTeams.forEach((t,i)=>{ text+=teamNames[i]+':\n'; t.forEach(p=>{ text+='  • '+p.name+'\n'; }); text+='\n'; });
+      text=text.trim();
+    } else if (mode==='players') {
+      const active=players.filter(p=>p.active), inactive=players.filter(p=>!p.active);
+      text+='✅ משחקים ('+active.length+'):\n';
+      active.forEach(p=>{ text+='  • '+p.name+'\n'; });
+      if (inactive.length>0) { text+='\n❌ לא משחקים ('+inactive.length+'):\n'; inactive.forEach(p=>{ text+='  • '+p.name+'\n'; }); }
+    }
+    document.getElementById('shareText').textContent=text;
+    document.getElementById('shareCopyBtn').textContent='📋 העתק';
+    document.getElementById('shareCopyBtn').classList.remove('copied');
+    document.getElementById('shareOverlay').classList.add('open');
+  }
+  function copyShare() {
+    navigator.clipboard.writeText(document.getElementById('shareText').textContent).then(()=>{
+      const btn=document.getElementById('shareCopyBtn'); btn.textContent='✓ הועתק!'; btn.classList.add('copied');
+    });
+  }
+  function closeShare() { document.getElementById('shareOverlay').classList.remove('open'); }
+
+  // ─── STATS ───
+  // stats stored in localStorage: { playerName: gamesCount }
+  function getStats() {
+    try { return JSON.parse(localStorage.getItem('teambalancer_stats') || '{}'); } catch { return {}; }
+  }
+  function saveStats(stats) {
+    localStorage.setItem('teambalancer_stats', JSON.stringify(stats));
+  }
+
+  function saveToStats() {
+    if (!lastTeams.length) return;
+    const stats = getStats();
+    lastTeams.forEach(team => team.forEach(p => {
+      stats[p.name] = (stats[p.name] || 0) + 1;
+    }));
+    saveStats(stats);
+    toast('✓ המשחק נשמר לסטטיסטיקות');
+  }
+
+  function resetStats() {
+    if (!confirm('לאפס את כל הסטטיסטיקות?')) return;
+    saveStats({});
+    renderStats();
+    toast('סטטיסטיקות אופסו');
+  }
+
+  function renderStats() {
+    const stats = getStats();
+    // merge with all known players to show 0 games too
+    const allNames = [...new Set([...players.map(p => p.name), ...Object.keys(stats)])];
+    const sorted = allNames
+      .map(name => ({ name, games: stats[name] || 0 }))
+      .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name, 'he'));
+
+    const max = sorted[0]?.games || 1;
+    const medals = ['🥇','🥈','🥉'];
+
+    document.getElementById('statsList').innerHTML = sorted.length === 0
+      ? '<p style="color:var(--muted);font-size:0.85rem;padding:8px 0">אין סטטיסטיקות עדיין — חלק לקבוצות ולחץ "הוסף לסטטיסטיקות"</p>'
+      : sorted.map((p, i) => {
+          const pct = max > 0 ? Math.round((p.games / max) * 100) : 0;
+          const rankClass = i < 3 ? 'top'+(i+1) : '';
+          const rankLabel = i < 3 ? medals[i] : (i + 1);
+          return `
+          <div class="stats-row">
+            <div class="stats-rank ${rankClass}">${rankLabel}</div>
+            <span class="stats-name">${p.name}</span>
+            <div class="stats-bar-wrap"><div class="stats-bar" style="width:${pct}%"></div></div>
+            <div style="text-align:center;min-width:38px">
+              <div class="stats-count">${p.games}</div>
+              <div class="stats-games-label">משחקים</div>
+            </div>
+          </div>`;
+        }).join('');
+  }
+
+  // ─── INIT ───
+  loadPermanent();
+</script>
+</body>
+</html>

@@ -310,17 +310,28 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ─── SUPABASE CONFIG ───
-  const SUPA_URL = 'https://bygrpoflnqroeibxxghv.supabase.co';
-  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5Z3Jwb2ZsbnFyb2VpYnh4Z2h2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQzNDQwNzgsImV4cCI6MjA4OTkyMDA3OH0.Hjh3b4iSFWIRAoVBU7RJwLgZj0-qAXpZPITCt6LJRQA';
-  const TABLE   = 'players'; // שם הטבלה שיצרת
+  // ─── GOOGLE SHEETS CONFIG ───
+  // כתובת ה-Web App של Google Apps Script (Deploy → Web app → URL שמסתיים ב-/exec)
+  const SHEET_API = 'https://script.google.com/macros/s/AKfycbxIH3_sZ__m-TUfQUmsdUVQuawpn0YOpnrb41olf5kxT_coNyTJXJ3WFpk0ijCHGFak/exec';
 
-  const supa = {
-    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
-    async get()    { const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?select=*&order=level.asc,name.asc`, { headers: this.headers }); return r.ok ? r.json() : []; },
-    async insert(name, level) { const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}`, { method:'POST', headers: this.headers, body: JSON.stringify({ name, level }) }); return r.ok ? (await r.json())[0] : null; },
-    async update(id, level)   { const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?id=eq.${id}`, { method:'PATCH', headers: this.headers, body: JSON.stringify({ level }) }); return r.ok; },
-    async delete(id)          { const r = await fetch(`${SUPA_URL}/rest/v1/${TABLE}?id=eq.${id}`, { method:'DELETE', headers: this.headers }); return r.ok; }
+  // POST עם text/plain כדי להימנע מ-CORS preflight (Apps Script לא תומך ב-OPTIONS)
+  async function sheetCall(action, data = {}) {
+    const r = await fetch(SHEET_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, ...data })
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const res = await r.json();
+    if (!res.ok) throw new Error(res.error || 'sheet error');
+    return res;
+  }
+
+  const db = {
+    async get()               { return (await sheetCall('list')).rows; },
+    async insert(name, level) { try { return (await sheetCall('insert', { name, level })).row; } catch { return null; } },
+    async update(id, level)   { try { await sheetCall('update', { id, level }); return true; } catch { return false; } },
+    async delete(id)          { try { await sheetCall('delete', { id }); return true; } catch { return false; } }
   };
 
   // ─── STATE ───
@@ -346,11 +357,11 @@
     document.getElementById('dbStatusText').textContent = text;
   }
 
-  // ─── LOAD FROM SUPABASE ───
+  // ─── LOAD FROM GOOGLE SHEETS ───
   async function loadPermanent() {
     setDbStatus('loading', 'מתחבר למסד הנתונים...');
     try {
-      const rows = await supa.get();
+      const rows = await db.get();
       permanent = rows.map(r => ({ id: r.id, name: r.name, level: r.level }));
       players = permanent.map(p => ({ ...p, active: false, perm: true }));
       setDbStatus('ok', 'מחובר · ' + permanent.length + ' שחקנים');
@@ -358,7 +369,7 @@
       renderManage();
     } catch(e) {
       setDbStatus('err', 'שגיאת חיבור');
-      toast('לא הצלחנו להתחבר ל-Supabase', 'err');
+      toast('לא הצלחנו להתחבר ל-Google Sheets', 'err');
     }
   }
 
@@ -416,13 +427,13 @@
   function togglePlayer(i) { players[i].active = !players[i].active; render(); }
   function deletePlayer(i)  { players.splice(i,1); render(); }
 
-  // ─── PERMANENT MANAGEMENT (Supabase) ───
+  // ─── PERMANENT MANAGEMENT (Google Sheets) ───
   async function addPermanentPlayer() {
     const name = document.getElementById('mNameInput').value.trim();
     if (!name) return;
     const btn = document.querySelector('.manage-add-box .btn-add');
     btn.disabled = true; btn.textContent = '...';
-    const row = await supa.insert(name, mSelectedLevel);
+    const row = await db.insert(name, mSelectedLevel);
     btn.disabled = false; btn.textContent = '+ הוסף';
     if (!row) { toast('שגיאה בהוספה', 'err'); return; }
     permanent.push({ id: row.id, name: row.name, level: row.level });
@@ -434,7 +445,7 @@
   }
 
   async function deletePermanent(id) {
-    const ok = await supa.delete(id);
+    const ok = await db.delete(id);
     if (!ok) { toast('שגיאה במחיקה', 'err'); return; }
     permanent = permanent.filter(p => p.id !== id);
     players   = players.filter(p => p.id !== id);
@@ -444,7 +455,7 @@
   }
 
   async function setPermanentLevel(id, level) {
-    const ok = await supa.update(id, level);
+    const ok = await db.update(id, level);
     if (!ok) { toast('שגיאה בעדכון', 'err'); return; }
     const pi = permanent.findIndex(p => p.id === id);
     if (pi !== -1) permanent[pi].level = level;
@@ -506,7 +517,7 @@
       btn.onclick = async () => {
         players[editingIndex].level = l;
         if (players[editingIndex].perm && players[editingIndex].id) {
-          await supa.update(players[editingIndex].id, l);
+          await db.update(players[editingIndex].id, l);
           const pi = permanent.findIndex(p => p.id === players[editingIndex].id);
           if (pi !== -1) permanent[pi].level = l;
         }

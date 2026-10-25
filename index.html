@@ -176,16 +176,50 @@
   .stats-games-label { font-size:0.7rem; color:var(--muted); }
   .btn-reset-stats { background:var(--surface2); border:1px solid rgba(224,90,48,0.3); color:var(--red); font-family:'Heebo',sans-serif; font-weight:700; font-size:0.82rem; padding:8px 16px; border-radius:8px; cursor:pointer; transition:all 0.15s; }
   .btn-reset-stats:hover { background:var(--red); color:#fff; }
+
+  /* ── PROFILES SCREEN ── */
+  .profile-list { display:flex; flex-direction:column; gap:10px; margin-bottom:20px; }
+  .profile-card { display:flex; align-items:center; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; cursor:pointer; transition:all 0.15s; animation:fadeIn 0.3s ease both; }
+  .profile-card:hover { border-color:var(--accent); transform:translateY(-1px); }
+  .pc-icon { width:42px; height:42px; border-radius:11px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:1.3rem; flex-shrink:0; }
+  .pc-name { flex:1; font-weight:800; font-size:1.05rem; }
+  .pc-btn { background:none; border:none; cursor:pointer; color:var(--muted); font-size:0.9rem; padding:6px; border-radius:6px; transition:color 0.15s; }
+  .pc-btn:hover { color:var(--accent); }
+  .pc-btn.del:hover { color:var(--red); }
+  .pc-arrow { color:var(--accent); font-weight:900; font-size:1.1rem; }
+  .profile-tag { display:inline-flex; align-items:center; gap:6px; color:var(--text); font-weight:700; }
+  .link-btn { background:none; border:none; color:var(--accent); font-family:'Heebo',sans-serif; font-size:0.8rem; font-weight:700; cursor:pointer; text-decoration:underline; padding:0; }
 </style>
 </head>
 <body>
 
+<!-- ══ PROFILES SCREEN (entry) ══ -->
+<div id="screenProfiles" class="screen active">
+  <h1>⚽ חלוקת קבוצות</h1>
+  <p class="subtitle">בחר קבוצת משחק</p>
+
+  <div class="db-status">
+    <div class="db-dot loading" id="profDot"></div>
+    <span id="profStatusText">מתחבר למסד הנתונים...</span>
+  </div>
+
+  <div class="profile-list" id="profileList"><div class="loading-row"><div class="spinner"></div>טוען קבוצות...</div></div>
+
+  <div class="manage-add-box">
+    <h2>➕ קבוצת משחק חדשה</h2>
+    <div class="manage-add-row" style="margin-bottom:0">
+      <input type="text" id="profileNameInput" placeholder="למשל: כדורגל יום ראשון" />
+      <button class="btn-add" id="profileAddBtn" onclick="addProfile()">+ צור</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ MAIN SCREEN ══ -->
-<div id="screenMain" class="screen active">
+<div id="screenMain" class="screen">
   <div class="top-bar">
     <div class="top-bar-left">
       <h1>⚽ חלוקת קבוצות</h1>
-      <p class="subtitle">בחר שחקנים פעילים וחלק לקבוצות מאוזנות</p>
+      <p class="subtitle"><span class="profile-tag">📍 <span id="profileLabel"></span></span> · <button class="link-btn" onclick="showProfiles()">החלף קבוצה</button></p>
     </div>
     <div style="display:flex;flex-direction:row;gap:6px;margin-top:6px">
       <button class="btn-manage" onclick="showManage()">👥 ניהול קבועים</button>
@@ -237,7 +271,7 @@
     <button class="btn-back" onclick="showMain()">→ חזרה</button>
     <div class="manage-title">👥 שחקנים קבועים</div>
   </div>
-  <p class="manage-subtitle">הוסף, ערוך או מחק שחקנים קבועים</p>
+  <p class="manage-subtitle">הוסף, ערוך או מחק שחקנים קבועים · <b id="manageProfileLabel"></b></p>
 
   <div class="db-status">
     <div class="db-dot loading" id="dbDot"></div>
@@ -272,6 +306,7 @@
     <button class="btn-back" onclick="showMain()">→ חזרה</button>
     <div class="stats-title">📊 סטטיסטיקות</div>
   </div>
+  <p class="stats-subtitle" id="statsProfileLabel"></p>
   <div class="stats-list-box">
     <h2>כמות משחקים לפי שחקן <button class="btn-reset-stats" onclick="resetStats()">אפס הכל</button></h2>
     <div id="statsList"></div>
@@ -327,14 +362,25 @@
     return res;
   }
 
+  // שחקנים קבועים — תמיד בהקשר של הפרופיל הנוכחי
   const db = {
-    async get()               { return (await sheetCall('list')).rows; },
-    async insert(name, level) { try { return (await sheetCall('insert', { name, level })).row; } catch { return null; } },
+    async get()               { return (await sheetCall('list', { profileId: currentProfile.id })).rows; },
+    async insert(name, level) { try { return (await sheetCall('insert', { name, level, profileId: currentProfile.id })).row; } catch { return null; } },
     async update(id, level)   { try { await sheetCall('update', { id, level }); return true; } catch { return false; } },
     async delete(id)          { try { await sheetCall('delete', { id }); return true; } catch { return false; } }
   };
 
+  // פרופילים (קבוצות משחק)
+  const profilesDb = {
+    async list()           { return (await sheetCall('profiles_list')).rows; },
+    async insert(name)     { try { return (await sheetCall('profile_insert', { name })).row; } catch { return null; } },
+    async rename(id, name) { try { await sheetCall('profile_rename', { id, name }); return true; } catch { return false; } },
+    async delete(id)       { try { await sheetCall('profile_delete', { id }); return true; } catch { return false; } }
+  };
+
   // ─── STATE ───
+  let profiles = [];          // [{ id, name }]
+  let currentProfile = null;  // { id, name }
   let permanent = [];   // [{ id, name, level }]
   let players   = [];   // session: permanent + temp additions
   let selectedLevel  = 1;
@@ -359,9 +405,12 @@
 
   // ─── LOAD FROM GOOGLE SHEETS ───
   async function loadPermanent() {
+    if (!currentProfile) return;
+    const pid = currentProfile.id;
     setDbStatus('loading', 'מתחבר למסד הנתונים...');
     try {
       const rows = await db.get();
+      if (!currentProfile || currentProfile.id !== pid) return; // הוחלף פרופיל בזמן הטעינה
       permanent = rows.map(r => ({ id: r.id, name: r.name, level: r.level }));
       players = permanent.map(p => ({ ...p, active: false, perm: true }));
       setDbStatus('ok', 'מחובר · ' + permanent.length + ' שחקנים');
@@ -390,23 +439,115 @@
   document.getElementById('nameInput').addEventListener('keydown',  e => { if (e.key==='Enter') addSessionPlayer(); });
   document.getElementById('mNameInput').addEventListener('keydown', e => { if (e.key==='Enter') addPermanentPlayer(); });
 
+  document.getElementById('profileNameInput').addEventListener('keydown', e => { if (e.key==='Enter') addProfile(); });
+
   // ─── SCREENS ───
-  function showMain() {
-    document.getElementById('screenMain').classList.add('active');
-    document.getElementById('screenManage').classList.remove('active');
-    document.getElementById('screenStats').classList.remove('active');
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === id));
+    window.scrollTo(0, 0);
   }
-  function showManage() {
-    document.getElementById('screenManage').classList.add('active');
-    document.getElementById('screenMain').classList.remove('active');
-    document.getElementById('screenStats').classList.remove('active');
-    loadPermanent();
+  function showProfiles() { showScreen('screenProfiles'); loadProfiles(); }
+  function showMain()     { showScreen('screenMain'); }
+  function showManage()   { showScreen('screenManage'); loadPermanent(); }
+  function showStats()    { showScreen('screenStats'); renderStats(); }
+
+  // ─── PROFILES ───
+  function setProfStatus(state, text) {
+    document.getElementById('profDot').className = 'db-dot ' + state;
+    document.getElementById('profStatusText').textContent = text;
   }
-  function showStats() {
-    document.getElementById('screenStats').classList.add('active');
-    document.getElementById('screenMain').classList.remove('active');
-    document.getElementById('screenManage').classList.remove('active');
-    renderStats();
+
+  async function loadProfiles() {
+    setProfStatus('loading', 'מתחבר למסד הנתונים...');
+    try {
+      profiles = (await profilesDb.list()).map(r => ({ id: String(r.id), name: r.name }));
+      migrateLegacyStats();
+      setProfStatus('ok', 'מחובר · ' + profiles.length + ' קבוצות');
+      renderProfiles();
+    } catch(e) {
+      setProfStatus('err', 'שגיאת חיבור');
+      document.getElementById('profileList').innerHTML = '';
+      toast('לא הצלחנו להתחבר ל-Google Sheets', 'err');
+    }
+  }
+
+  function renderProfiles() {
+    const el = document.getElementById('profileList');
+    el.innerHTML = profiles.length === 0
+      ? '<p style="color:var(--muted);font-size:0.85rem;padding:8px 0">אין קבוצות עדיין — צור קבוצה חדשה למטה</p>'
+      : profiles.map((p, i) => `
+          <div class="profile-card" style="animation-delay:${i*0.05}s" onclick="selectProfile('${p.id}')">
+            <div class="pc-icon">⚽</div>
+            <span class="pc-name">${p.name}</span>
+            <button class="pc-btn" onclick="event.stopPropagation();renameProfile('${p.id}')" title="שנה שם">✏️</button>
+            <button class="pc-btn del" onclick="event.stopPropagation();deleteProfile('${p.id}')" title="מחק">✕</button>
+            <span class="pc-arrow">←</span>
+          </div>`).join('');
+  }
+
+  function selectProfile(id) {
+    const p = profiles.find(x => x.id === id);
+    if (!p) return;
+    if (!currentProfile || currentProfile.id !== id) {
+      currentProfile = { ...p };
+      permanent = []; players = []; lastTeams = [];
+      document.getElementById('teamsSection').innerHTML = '';
+      document.getElementById('permanentList').innerHTML = '<div class="loading-row"><div class="spinner"></div>טוען שחקנים...</div>';
+      render();
+      loadPermanent();
+    }
+    updateProfileLabels();
+    showMain();
+  }
+
+  function updateProfileLabels() {
+    const name = currentProfile ? currentProfile.name : '';
+    document.getElementById('profileLabel').textContent = name;
+    document.getElementById('manageProfileLabel').textContent = name;
+    document.getElementById('statsProfileLabel').textContent = name;
+  }
+
+  async function addProfile() {
+    const input = document.getElementById('profileNameInput');
+    const name = input.value.trim();
+    if (!name) return;
+    const btn = document.getElementById('profileAddBtn');
+    btn.disabled = true; btn.textContent = '...';
+    const row = await profilesDb.insert(name);
+    btn.disabled = false; btn.textContent = '+ צור';
+    if (!row) { toast('שגיאה ביצירת קבוצה', 'err'); return; }
+    profiles.push({ id: String(row.id), name: row.name });
+    input.value = '';
+    setProfStatus('ok', 'מחובר · ' + profiles.length + ' קבוצות');
+    toast('✓ ' + row.name + ' נוצרה');
+    renderProfiles();
+  }
+
+  async function renameProfile(id) {
+    const p = profiles.find(x => x.id === id);
+    if (!p) return;
+    const name = (prompt('שם חדש לקבוצה:', p.name) || '').trim();
+    if (!name || name === p.name) return;
+    const ok = await profilesDb.rename(id, name);
+    if (!ok) { toast('שגיאה בשינוי שם', 'err'); return; }
+    p.name = name;
+    if (currentProfile && currentProfile.id === id) { currentProfile.name = name; updateProfileLabels(); }
+    toast('שם עודכן');
+    renderProfiles();
+  }
+
+  async function deleteProfile(id) {
+    const p = profiles.find(x => x.id === id);
+    if (!p) return;
+    if (!confirm('למחוק את "' + p.name + '" וכל השחקנים הקבועים שלה?')) return;
+    const ok = await profilesDb.delete(id);
+    if (!ok) { toast('שגיאה במחיקה', 'err'); return; }
+    profiles = profiles.filter(x => x.id !== id);
+    try { localStorage.removeItem(statsKey(id)); } catch {}
+    if (currentProfile && currentProfile.id === id) { currentProfile = null; permanent = []; players = []; lastTeams = []; }
+    setProfStatus('ok', 'מחובר · ' + profiles.length + ' קבוצות');
+    toast('נמחק בהצלחה');
+    renderProfiles();
   }
 
   function toggleNewActive() {
@@ -615,12 +756,24 @@
   function closeShare() { document.getElementById('shareOverlay').classList.remove('open'); }
 
   // ─── STATS ───
-  // stats stored in localStorage: { playerName: gamesCount }
+  // stats stored in localStorage per profile: { playerName: gamesCount }
+  function statsKey(pid) { return 'teambalancer_stats_' + pid; }
   function getStats() {
-    try { return JSON.parse(localStorage.getItem('teambalancer_stats') || '{}'); } catch { return {}; }
+    if (!currentProfile) return {};
+    try { return JSON.parse(localStorage.getItem(statsKey(currentProfile.id)) || '{}'); } catch { return {}; }
   }
   function saveStats(stats) {
-    localStorage.setItem('teambalancer_stats', JSON.stringify(stats));
+    if (!currentProfile) return;
+    try { localStorage.setItem(statsKey(currentProfile.id), JSON.stringify(stats)); } catch {}
+  }
+  // סטטיסטיקות מלפני הפרופילים עוברות לקבוצה הראשונה (חד-פעמי)
+  function migrateLegacyStats() {
+    try {
+      const legacy = localStorage.getItem('teambalancer_stats');
+      if (!legacy || !profiles.length) return;
+      if (!localStorage.getItem(statsKey(profiles[0].id))) localStorage.setItem(statsKey(profiles[0].id), legacy);
+      localStorage.removeItem('teambalancer_stats');
+    } catch {}
   }
 
   function saveToStats() {
@@ -671,7 +824,7 @@
   }
 
   // ─── INIT ───
-  loadPermanent();
+  loadProfiles();
 </script>
 </body>
 </html>
